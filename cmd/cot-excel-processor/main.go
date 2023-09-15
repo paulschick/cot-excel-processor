@@ -41,7 +41,15 @@ func main() {
 		"NonRept_Positions_Short_All",
 	}
 
-	columnNamesIndex := getColumnIndices(filePath, orderedColNames)
+	workbook, err := OpenExcel(filePath)
+	if err != nil {
+		panic(err)
+	}
+	sheet, err := GetFirstSheet(workbook)
+	if err != nil {
+		panic(err)
+	}
+	columnNamesIndex := getColumnIndices(sheet, orderedColNames)
 
 	fmt.Println(columnNamesIndex)
 
@@ -70,11 +78,13 @@ func main() {
 			var csvRow []string
 			for _, colName := range orderedColNames {
 				colIdx := columnNamesIndex[colName]
+				//fmt.Println(colName, colIdx)
 				if colIdx != -1 {
 					csvRow = append(csvRow, row.Col(colIdx))
 				} else {
 					csvRow = append(csvRow, "")
 				}
+				fmt.Println(csvRow)
 			}
 			err = writer.Write(csvRow)
 			if err != nil {
@@ -97,32 +107,42 @@ func getFilePath(file os.DirEntry, basePath string) (string, error) {
 	return filepath.Join(basePath, file.Name()), nil
 }
 
-func getColumnIndices(filePath string, orderedColNames []string) map[string]int {
+func OpenExcel(filePath string) (*xls.WorkBook, error) {
+	file, err := xls.Open(filePath, "utf-8")
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func GetFirstSheet(workbook *xls.WorkBook) (*xls.WorkSheet, error) {
+	if workbook == nil {
+		return nil, fmt.Errorf("workbook is nil")
+	}
+	if sheet := workbook.GetSheet(0); sheet != nil {
+		return sheet, nil
+	}
+	return nil, fmt.Errorf("sheet is nil")
+}
+
+func getColumnIndices(sheet *xls.WorkSheet, orderedColNames []string) map[string]int {
 	columnNamesIndex := make(map[string]int)
 	for _, colName := range orderedColNames {
 		columnNamesIndex[colName] = -1
 	}
 
-	file, err := xls.Open(filePath, "utf-8")
-	if err != nil {
-		panic(err)
-	}
-
-	if sheet1 := file.GetSheet(0); sheet1 != nil {
-		row1 := sheet1.Row(0)
-		foundColumns := 0
-		for idx := row1.FirstCol(); idx < row1.LastCol(); idx++ {
-			colName := row1.Col(idx)
-			if colIndex, ok := columnNamesIndex[colName]; ok && colIndex == -1 {
-				columnNamesIndex[colName] = idx
-				foundColumns++
-				if foundColumns == len(columnNamesIndex) {
-					break
-				}
+	row1 := sheet.Row(0)
+	foundColumns := 0
+	for idx := row1.FirstCol(); idx < row1.LastCol(); idx++ {
+		colName := row1.Col(idx)
+		if colIndex, ok := columnNamesIndex[colName]; ok && colIndex == -1 {
+			columnNamesIndex[colName] = idx
+			foundColumns++
+			if foundColumns == len(columnNamesIndex) {
+				break
 			}
 		}
 	}
-
 	return columnNamesIndex
 }
 
