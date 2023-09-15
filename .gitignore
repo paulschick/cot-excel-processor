@@ -1,2 +1,4 @@
 data
 .idea
+output.csv
+output*.csv
