@@ -3,6 +3,7 @@ package cotprocessor
 import (
 	"encoding/csv"
 	"fmt"
+	"github.com/paulschick/cot-excel-processor/pkg/fs"
 	grate "github.com/pbnjay/grate/xls"
 	"os"
 	"path/filepath"
@@ -33,22 +34,10 @@ func NewProcessor() *Processor {
 	}
 }
 
-func (p *Processor) ensureDirExists(directory string) error {
-	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		err := os.MkdirAll(directory, 0755)
-		if err != nil {
-			return fmt.Errorf("error creating directory: %v", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to stat directory: %v", err)
-	}
-	return nil
-}
-
 func (p *Processor) createOutputFile(xlsFileName string, outputDir string) error {
 	outputFileName := strings.TrimSuffix(xlsFileName, ".xls") + "_processed.csv"
 	outputFilePath := filepath.Join(outputDir, outputFileName)
-	err := p.ensureDirExists(outputDir)
+	err := fs.EnsureDirExists(outputDir)
 	if err != nil {
 		return err
 	}
@@ -133,7 +122,7 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 }
 
 func (p *Processor) ProcessXLSFiles(dataDir string, outputDir string) error {
-	err := p.ensureDirExists(dataDir)
+	err := fs.EnsureDirExists(dataDir)
 	if err != nil {
 		return err
 	}
