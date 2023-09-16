@@ -7,6 +7,7 @@ import (
 	grate "github.com/pbnjay/grate/xls"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -52,6 +53,9 @@ func (p *Processor) createOutputFile(xlsFileName string, outputDir string) error
 }
 
 func (p *Processor) initializeColumnIndices(headerRow []string) {
+	for _, colName := range p.OrderedColNames {
+		p.ColumnNamesIndex[colName] = -1
+	}
 	for colIdx := 0; colIdx < len(headerRow); colIdx++ {
 		col := headerRow[colIdx]
 		if _, ok := p.ColumnNamesIndex[col]; ok {
@@ -81,6 +85,10 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 	}
 
 	defer func() {
+		p.Writer.Flush()
+		if err := p.Writer.Error(); err != nil {
+			panic(err)
+		}
 		err := p.OutputFile.Close()
 		if err != nil {
 			panic(err)
@@ -97,27 +105,66 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 		return fmt.Errorf("error listing sheets: %v", err)
 	}
 
+	initializedHeaders := false
 	for _, s := range sheets {
 		sheet, err := wb.Get(s)
 		if err != nil {
 			return fmt.Errorf("error getting sheet: %v", err)
 		}
 
-		i := 0
 		for sheet.Next() {
 			row := sheet.Strings()
-			if i == 0 {
+			if !initializedHeaders {
 				p.initializeColumnIndices(row)
+				headers := append(
+					p.OrderedColNames,
+					"NonComm_Positions_Net_All",
+					"Comm_Positions_Net_All",
+					"NonRept_Positions_Net_All",
+				)
+				err := p.Writer.Write(headers)
+				if err != nil {
+					return fmt.Errorf("error writing headers to CSV: %v", err)
+				}
+				initializedHeaders = true
+				continue
+			}
+			csvRow := make([]string, len(p.OrderedColNames))
+
+			for idx, colName := range p.OrderedColNames {
+				colIdx := p.ColumnNamesIndex[colName]
+				if colIdx != -1 && colIdx < len(row) {
+					csvRow[idx] = row[colIdx]
+				} else {
+					csvRow[idx] = ""
+				}
 			}
 
-			if err := p.processRow(row); err != nil {
-				return fmt.Errorf("error processing row: %v", err)
+			// Calculating the new columns
+			if nonCommLong, nonCommShort, err := p.getValuesFromRow(row, "NonComm_Positions_Long_All", "NonComm_Positions_Short_All"); err == nil {
+				csvRow = append(csvRow, strconv.Itoa(nonCommLong-nonCommShort))
+			} else {
+				csvRow = append(csvRow, "")
 			}
 
-			i++
+			if commLong, commShort, err := p.getValuesFromRow(row, "Comm_Positions_Long_All", "Comm_Positions_Short_All"); err == nil {
+				csvRow = append(csvRow, strconv.Itoa(commLong-commShort))
+			} else {
+				csvRow = append(csvRow, "")
+			}
+
+			if nonReptLong, nonReptShort, err := p.getValuesFromRow(row, "NonRept_Positions_Long_All", "NonRept_Positions_Short_All"); err == nil {
+				csvRow = append(csvRow, strconv.Itoa(nonReptLong-nonReptShort))
+			} else {
+				csvRow = append(csvRow, "")
+			}
+
+			err = p.Writer.Write(csvRow)
+			if err != nil {
+				return fmt.Errorf("failed writing to CSV: %v", err)
+			}
 		}
 	}
-	p.Writer.Flush()
 	return nil
 }
 
@@ -146,4 +193,29 @@ func (p *Processor) ProcessXLSFiles(dataDir string, outputDir string) error {
 	}
 
 	return nil
+}
+
+func (p *Processor) getValuesFromRow(row []string, col1, col2 string) (int, int, error) {
+	index1, ok1 := p.ColumnNamesIndex[col1]
+	index2, ok2 := p.ColumnNamesIndex[col2]
+
+	if !ok1 || !ok2 {
+		return 0, 0, fmt.Errorf("one or both columns not found: %s, %s", col1, col2)
+	}
+
+	if index1 >= len(row) || index2 >= len(row) {
+		return 0, 0, fmt.Errorf("row does not contain values for one or both columns: %s, %s", col1, col2)
+	}
+
+	v1, err := strconv.Atoi(row[index1])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	v2, err := strconv.Atoi(row[index2])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return v1, v2, nil
 }
