@@ -67,9 +67,9 @@ func main() {
 }
 
 func process(dataDir string, outputDir string) {
-	processor := cotprocessor.NewProcessor()
+	processor := cotprocessor.NewProcessor(dataDir, outputDir)
 
-	err := processor.ProcessXLSFiles(dataDir, outputDir)
+	err := processor.ProcessXLSFiles()
 	if err != nil {
 		panic(err)
 	}

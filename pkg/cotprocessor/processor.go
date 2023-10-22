@@ -4,10 +4,10 @@ import (
 	"encoding/csv"
 	"fmt"
 	"github.com/paulschick/cot-excel-processor/pkg/fs"
+	"github.com/paulschick/cot-excel-processor/pkg/models"
 	grate "github.com/pbnjay/grate/xls"
+	"log"
 	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -16,9 +16,12 @@ type Processor struct {
 	ColumnNamesIndex map[string]int
 	Writer           *csv.Writer
 	OutputFile       *os.File
+	XlsDir           string
+	CsvDir           string
+	FileNameManager  *models.FileNameManager
 }
 
-func NewProcessor() *Processor {
+func NewProcessor(xlsDir, csvDir string) *Processor {
 	return &Processor{
 		OrderedColNames: []string{
 			"Market_and_Exchange_Names",
@@ -32,18 +35,17 @@ func NewProcessor() *Processor {
 			"NonRept_Positions_Short_All",
 		},
 		ColumnNamesIndex: make(map[string]int),
+		FileNameManager:  models.NewFileNameManager(xlsDir, csvDir),
 	}
 }
 
-func (p *Processor) createOutputFile(xlsFileName string, outputDir string) error {
-	outputFileName := strings.TrimSuffix(xlsFileName, ".xls") + "_processed.csv"
-	outputFilePath := filepath.Join(outputDir, outputFileName)
-	err := fs.EnsureDirExists(outputDir)
+func (p *Processor) createOutputFile(fileNames *models.FileNames) error {
+	err := fs.EnsureDirExists(p.FileNameManager.CsvDir)
 	if err != nil {
 		return err
 	}
 
-	p.OutputFile, err = os.Create(outputFilePath)
+	p.OutputFile, err = os.Create(fileNames.CsvPath)
 	if err != nil {
 		return err
 	}
@@ -64,23 +66,8 @@ func (p *Processor) initializeColumnIndices(headerRow []string) {
 	}
 }
 
-func (p *Processor) processRow(row []string) error {
-	csvRow := make([]string, len(p.OrderedColNames))
-
-	for idx, colName := range p.OrderedColNames {
-		colIdx, exists := p.ColumnNamesIndex[colName]
-		if exists && colIdx != -1 {
-			csvRow[idx] = row[colIdx]
-		} else {
-			csvRow[idx] = ""
-		}
-	}
-
-	return p.Writer.Write(csvRow)
-}
-
-func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
-	if err := p.createOutputFile(filepath.Base(filePath), outputDir); err != nil {
+func (p *Processor) ProcessXLS(fileNames *models.FileNames) error {
+	if err := p.createOutputFile(fileNames); err != nil {
 		return fmt.Errorf("error creating output file: %v", err)
 	}
 
@@ -95,7 +82,7 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 		}
 	}()
 
-	wb, err := grate.Open(filePath)
+	wb, err := grate.Open(fileNames.XlsPath)
 	if err != nil {
 		return fmt.Errorf("error opening xls file: %v", err)
 	}
@@ -129,36 +116,8 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 				initializedHeaders = true
 				continue
 			}
-			csvRow := make([]string, len(p.OrderedColNames))
-
-			for idx, colName := range p.OrderedColNames {
-				colIdx := p.ColumnNamesIndex[colName]
-				if colIdx != -1 && colIdx < len(row) {
-					csvRow[idx] = row[colIdx]
-				} else {
-					csvRow[idx] = ""
-				}
-			}
-
-			// Calculating the new columns
-			if nonCommLong, nonCommShort, err := p.getValuesFromRow(row, "NonComm_Positions_Long_All", "NonComm_Positions_Short_All"); err == nil {
-				csvRow = append(csvRow, strconv.Itoa(nonCommLong-nonCommShort))
-			} else {
-				csvRow = append(csvRow, "")
-			}
-
-			if commLong, commShort, err := p.getValuesFromRow(row, "Comm_Positions_Long_All", "Comm_Positions_Short_All"); err == nil {
-				csvRow = append(csvRow, strconv.Itoa(commLong-commShort))
-			} else {
-				csvRow = append(csvRow, "")
-			}
-
-			if nonReptLong, nonReptShort, err := p.getValuesFromRow(row, "NonRept_Positions_Long_All", "NonRept_Positions_Short_All"); err == nil {
-				csvRow = append(csvRow, strconv.Itoa(nonReptLong-nonReptShort))
-			} else {
-				csvRow = append(csvRow, "")
-			}
-
+			rowModel := models.NewRow(row, p.ColumnNamesIndex)
+			csvRow := rowModel.GetCsvRow()
 			err = p.Writer.Write(csvRow)
 			if err != nil {
 				return fmt.Errorf("failed writing to CSV: %v", err)
@@ -168,54 +127,35 @@ func (p *Processor) ProcessXLS(filePath string, outputDir string) error {
 	return nil
 }
 
-func (p *Processor) ProcessXLSFiles(dataDir string, outputDir string) error {
-	err := fs.EnsureDirExists(dataDir)
+func (p *Processor) ProcessXLSFiles() error {
+	err := fs.EnsureDirExists(p.FileNameManager.XlsDir)
 	if err != nil {
 		return err
 	}
 
-	files, err := os.ReadDir(dataDir)
+	files, err := os.ReadDir(p.FileNameManager.XlsDir)
 	if err != nil {
 		return err
 	}
 
 	for fileNo, file := range files {
-		fmt.Println("Processing file (", fileNo+1, ") ", file.Name())
-
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".xls") {
-			filePath := filepath.Join(dataDir, file.Name())
-
-			err = p.ProcessXLS(filePath, outputDir)
-			if err != nil {
-				return err
-			}
+		err := p.processFile(fileNo, file)
+		if err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (p *Processor) getValuesFromRow(row []string, col1, col2 string) (int, int, error) {
-	index1, ok1 := p.ColumnNamesIndex[col1]
-	index2, ok2 := p.ColumnNamesIndex[col2]
-
-	if !ok1 || !ok2 {
-		return 0, 0, fmt.Errorf("one or both columns not found: %s, %s", col1, col2)
+func (p *Processor) processFile(fileNo int, file os.DirEntry) error {
+	log.Println("Processing file (", fileNo+1, ") ", file.Name())
+	if !file.IsDir() && strings.HasSuffix(file.Name(), ".xls") {
+		fileNames := p.FileNameManager.GetFileNames(file.Name())
+		err := p.ProcessXLS(fileNames)
+		if err != nil {
+			return err
+		}
 	}
-
-	if index1 >= len(row) || index2 >= len(row) {
-		return 0, 0, fmt.Errorf("row does not contain values for one or both columns: %s, %s", col1, col2)
-	}
-
-	v1, err := strconv.Atoi(row[index1])
-	if err != nil {
-		return 0, 0, err
-	}
-
-	v2, err := strconv.Atoi(row[index2])
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return v1, v2, nil
+	return nil
 }
