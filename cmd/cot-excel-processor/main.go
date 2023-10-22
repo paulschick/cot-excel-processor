@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	downloaderService "github.com/paulschick/cot-downloader/pkg/service"
+	"github.com/paulschick/cot-excel-processor/pkg/config"
 	"github.com/paulschick/cot-excel-processor/pkg/cotprocessor"
 	"github.com/paulschick/cot-excel-processor/pkg/fs"
 	"os"
@@ -11,14 +12,33 @@ import (
 
 func main() {
 	var (
-		shouldDownload = flag.Bool("download", false, "Download reports before processing.")
-		startYear      = flag.Int("startYear", 0, "Start year for report dates")
-		endYear        = flag.Int("endYear", 0, "End year for report dates")
-		downloadDir    = flag.String("downloadDir", "./data", "Directory for downloaded reports")
-		outputDir      = flag.String("outputDir", "./output", "Directory for CSV exports")
+		environmentFile = flag.Bool("env", true, "Load configuration from .env file. If this is true, all other flags are ignored.")
+		shouldDownload  = flag.Bool("download", false, "Download reports before processing.")
+		startYear       = flag.Int("startYear", 0, "Start year for report dates")
+		endYear         = flag.Int("endYear", 0, "End year for report dates")
+		downloadDir     = flag.String("downloadDir", "./data", "Directory for downloaded reports")
+		outputDir       = flag.String("outputDir", "./output", "Directory for CSV exports")
 	)
 
 	flag.Parse()
+
+	if *environmentFile {
+		fmt.Println("Loading configuration from .env file")
+		conf := config.Configurations()
+		shouldDownload = &conf.Download
+		startYear = &conf.StartYear
+		endYear = &conf.EndYear
+		downloadDir = &conf.DownloadDir
+		outputDir = &conf.OutputDir
+	} else {
+		fmt.Println("Loading configuration from command line flags")
+	}
+
+	fmt.Println("shouldDownload:", *shouldDownload)
+	fmt.Println("startYear:", *startYear)
+	fmt.Println("endYear:", *endYear)
+	fmt.Println("downloadDir:", *downloadDir)
+	fmt.Println("outputDir:", *outputDir)
 
 	if *shouldDownload {
 		if *startYear == 0 || *endYear == 0 {

@@ -3,3 +3,4 @@ output
 .idea
 output.csv
 output*.csv
+.env
