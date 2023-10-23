@@ -12,6 +12,9 @@ const (
 	CommShort          = "Comm_Positions_Short_All"
 	NonReptLong        = "NonRept_Positions_Long_All"
 	NonReptShort       = "NonRept_Positions_Short_All"
+	NonCommNet         = "NonComm_Positions_Net_All"
+	CommNet            = "Comm_Positions_Net_All"
+	NonReptNet         = "NonRept_Positions_Net_All"
 )
 
 type Row struct {

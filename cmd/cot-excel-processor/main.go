@@ -8,16 +8,17 @@ import (
 	"github.com/paulschick/cot-excel-processor/pkg/cotprocessor"
 	"github.com/paulschick/cot-excel-processor/pkg/fs"
 	"os"
+	"time"
 )
 
 func main() {
 	var (
 		environmentFile = flag.Bool("env", true, "Load configuration from .env file. If this is true, all other flags are ignored.")
-		shouldDownload  = flag.Bool("download", false, "Download reports before processing.")
-		startYear       = flag.Int("startYear", 0, "Start year for report dates")
-		endYear         = flag.Int("endYear", 0, "End year for report dates")
-		downloadDir     = flag.String("downloadDir", "./data", "Directory for downloaded reports")
-		outputDir       = flag.String("outputDir", "./output", "Directory for CSV exports")
+		shouldDownload  = flag.Bool("download", true, "Download reports before processing.")
+		startYear       = flag.Int("startYear", time.Now().Year(), "Start year for report dates")
+		endYear         = flag.Int("endYear", time.Now().Year(), "End year for report dates")
+		downloadDir     = flag.String("downloadDir", "./data/xls", "Directory for downloaded reports")
+		outputDir       = flag.String("outputDir", "./data/csv", "Directory for CSV exports")
 	)
 
 	flag.Parse()

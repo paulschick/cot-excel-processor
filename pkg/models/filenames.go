@@ -35,3 +35,11 @@ func NewFileNames(xlsPath, csvPath string) *FileNames {
 		CsvPath: csvPath,
 	}
 }
+
+func (f *FileNames) GetXlsDir() string {
+	return filepath.Dir(f.XlsPath)
+}
+
+func (f *FileNames) GetCsvDir() string {
+	return filepath.Dir(f.CsvPath)
+}

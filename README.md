@@ -54,8 +54,9 @@ Specifying custom directories:
 
 ### Command Line Options
 
-- `-download`: Download reports before processing. Requires `startYear` and `endYear`.
-- `-startYear`: Start year for report dates.
-- `-endYear`: End year for report dates.
-- `-downloadDir`: Directory for downloaded reports. Defaults to `./data`.
-- `-outputDir`: Directory for CSV exports. Defaults to `./output`.
+- `-env`: Use a `.env` file instead of command line arguments. Defaults to true. This will ignore all other command line arguments.
+- `-download`: Download reports before processing. Defaults to true. If false, you must have `.xls` files in the download directory.
+- `-startYear`: Start year for report dates. Defaults to current year.
+- `-endYear`: End year for report dates. Defaults to current year.
+- `-downloadDir`: Directory for downloaded reports. Defaults to `./data/xls`.
+- `-outputDir`: Directory for CSV exports. Defaults to `./data/csv`.
