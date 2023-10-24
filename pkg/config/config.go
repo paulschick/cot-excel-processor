@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	Download    bool
-	StartYear   int
-	EndYear     int
-	DownloadDir string
-	OutputDir   string
+	Download      bool
+	YearRangeOnly bool
+	StartYear     int
+	EndYear       int
+	DownloadDir   string
+	OutputDir     string
 }
 
 func Configurations() *Config {
@@ -25,6 +26,13 @@ func Configurations() *Config {
 		Download: func() bool {
 			download := os.Getenv("DOWNLOAD")
 			if download == "" || download == "false" {
+				return false
+			}
+			return true
+		}(),
+		YearRangeOnly: func() bool {
+			yearRangeOnly := os.Getenv("YEAR_RANGE_ONLY")
+			if yearRangeOnly == "" || yearRangeOnly == "false" {
 				return false
 			}
 			return true

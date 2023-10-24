@@ -14,6 +14,7 @@ import (
 func main() {
 	var (
 		environmentFile = flag.Bool("env", true, "Load configuration from .env file. If this is true, all other flags are ignored.")
+		yearRangeOnly   = flag.Bool("rangeOnly", true, "Process XLS files for only the years provided. Otherwise, process all XLS files")
 		shouldDownload  = flag.Bool("download", true, "Download reports before processing.")
 		startYear       = flag.Int("startYear", time.Now().Year(), "Start year for report dates")
 		endYear         = flag.Int("endYear", time.Now().Year(), "End year for report dates")
@@ -31,11 +32,13 @@ func main() {
 		endYear = &conf.EndYear
 		downloadDir = &conf.DownloadDir
 		outputDir = &conf.OutputDir
+		yearRangeOnly = &conf.YearRangeOnly
 	} else {
 		fmt.Println("Loading configuration from command line flags")
 	}
 
 	fmt.Println("shouldDownload:", *shouldDownload)
+	fmt.Println("yearRangeOnly:", *yearRangeOnly)
 	fmt.Println("startYear:", *startYear)
 	fmt.Println("endYear:", *endYear)
 	fmt.Println("downloadDir:", *downloadDir)
@@ -64,13 +67,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	process(*downloadDir, *outputDir)
+	if *yearRangeOnly {
+		processRangeOnly(*downloadDir, *outputDir, fmt.Sprintf("%d", *startYear), fmt.Sprintf("%d", *endYear))
+	} else {
+		process(*downloadDir, *outputDir)
+	}
 }
 
 func process(dataDir string, outputDir string) {
 	processor := cotprocessor.NewProcessor(dataDir, outputDir)
 
 	err := processor.ProcessXLSFiles()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func processRangeOnly(dataDir, outputDir, startYear, endYear string) {
+	processor := cotprocessor.NewProcessor(dataDir, outputDir)
+	err := processor.ProcessXLSForYearRange(startYear, endYear)
 	if err != nil {
 		panic(err)
 	}

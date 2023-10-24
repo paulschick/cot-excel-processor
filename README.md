@@ -1,6 +1,6 @@
 # COT Excel Processor
 
-The COT Excel Processor is a tool that allows users to download and process COT Excel reports. It extracts specific 
+The COT Excel Processor is a tool that allows users to download and process COT Excel reports. It extracts specific
 columns of interest and exports to CSV.
 
 ## Features
@@ -54,8 +54,12 @@ Specifying custom directories:
 
 ### Command Line Options
 
-- `-env`: Use a `.env` file instead of command line arguments. Defaults to true. This will ignore all other command line arguments.
-- `-download`: Download reports before processing. Defaults to true. If false, you must have `.xls` files in the download directory.
+- `-env`: Use a `.env` file instead of command line arguments. Defaults to true. This will ignore all other command line
+  arguments.
+- `-yearRangeOnly`: Process the XLS files for only the range of years provided. Defaults to true.
+  if false, all XLS files in the download directory will be processed.
+- `-download`: Download reports before processing. Defaults to true. If false, you must have `.xls` files in the
+  download directory.
 - `-startYear`: Start year for report dates. Defaults to current year.
 - `-endYear`: End year for report dates. Defaults to current year.
 - `-downloadDir`: Directory for downloaded reports. Defaults to `./data/xls`.
